@@ -9,12 +9,9 @@ const axios = require('axios')
 
 const router = Router();
 
-// Configurar los routers
-// Ejemplo: router.use('/auth', authRouter);
-
 const getApiPokes = async () => {
     const quantityOfPokes = 40;
-    const pokesPerFetch = 20;
+    const pokesPerFetch = 20; /* API parameter*/
     const requiredArrays = Math.ceil(quantityOfPokes / pokesPerFetch)
     let pokes = [];
     const apiCall = await fetch('https://pokeapi.co/api/v2/pokemon');
@@ -46,7 +43,14 @@ const getApiPokes = async () => {
             return {
                 image: e.sprites.other.home.front_default,
                 name: e.name,
-                types: e.types.map(e => e.type.name)
+                types: e.types.map(e => e.type.name),
+                id: e.id,
+                hp: e.stats[0].base_stat,
+                attack: e.stats[1].base_stat,
+                defense: e.stats[2].base_stat,
+                speed: e.stats[5].base_stat,
+                height: e.height,
+                weight: e.weight
             }
         })
 
@@ -69,36 +73,64 @@ const getDbPokes = async () => {
     })
 }
 
-const getPokesById = async (id) => {
-    try {
-        //falta filtrar por db
-        const dbPokes = await getDbPokes();
-        const filterById = dbPokes.filter(e => e.id == id)
-        if (filterById.length) {
-            return filterById
-        }
-        //filter in API with endpoint by id
-        const apiPokes = await fetch(`https://pokeapi.co/api/v2/pokemon/${id}`)
-        const jsonRes = await apiPokes.json()
-        // let's filter just the needed info for the detail path ↓
-        const c = [];
-        c.push({ ...jsonRes })
-        const selectedInfoById = c.map(e => {
-            return {
-                image: e.sprites.other.home.front_default,
-                name: e.name,
-                types: e.types.map(e => e.type.name),
-                id: e.id,
-                hp: e.stats[0].base_stat,
-                attack: e.stats[1].base_stat,
-                defense: e.stats[2].base_stat,
-                speed: e.stats[5].base_stat,
-                height: e.height,
-                weight: e.weight
+const getDbPokesById = async (id) => {
+
+    const pokesFilterInDbById = await Pokemon.findAll({
+        where: { id },
+        include: {
+            model: Types,
+            attributes: ['name'],
+            through: {
+                attributes: []
             }
-        })
-        return selectedInfoById;
-        //falta un mensaje de no encontrado ni en db ni en api
+        }
+    })
+    if (pokesFilterInDbById.length === 0) {
+        return null
+    }
+    return pokesFilterInDbById;
+
+}
+
+
+const getApiPokesById = async (id) => {
+    try {
+        if (id.length > 3) {
+            const dbPokes = await getDbPokesById(id);
+            if (dbPokes === null) {
+                return { status: "error", msg: "Poke id doesn't exists" };
+            }
+            return { status: "success", msg: "", data: dbPokes };
+        } else {
+            try {
+                const apiPokes = await fetch(`https://pokeapi.co/api/v2/pokemon/${id}`);
+                const jsonRes = await apiPokes.json()
+
+                let c = [];
+                c.push({ ...jsonRes })
+
+                const selectedInfoById = c.map(e => {
+                    return {
+                        image: e.sprites.other.home.front_default,
+                        name: e.name,
+                        types: e.types.map(e => e.type.name),
+                        id: e.id,
+                        hp: e.stats[0].base_stat,
+                        attack: e.stats[1].base_stat,
+                        defense: e.stats[2].base_stat,
+                        speed: e.stats[5].base_stat,
+                        height: e.height,
+                        weight: e.weight
+                    }
+                })
+                return { status: "success", msg: "", data: selectedInfoById };
+
+            } catch (error) {
+                return { status: "error", msg: "Poke id doesn't exists" };
+            }
+        }
+
+
     } catch (error) {
         console.error(error);
     }
@@ -118,9 +150,28 @@ const getInDbPokesByName = async (name) => {
 
 const getInApiPokesByName = async (name) => {
     try {
-        const apiPokes = await fetch(`https://pokeapi.co/api/v2/pokemon/${name}`);
-        const apiPokesJson = await apiPokes.json();
-        return apiPokesJson;
+        const apiPokes = await axios(`https://pokeapi.co/api/v2/pokemon/${name}`);
+        // const apiPokesJson = await axios(apiPokes.data.forms[0].url);
+        // const apiPokesJson2 = await axios(apiPokesJson.data.pokemon.url);
+        const apiPokesJson3 = await apiPokes.data;
+        let array = [];
+        array.push(apiPokesJson3)
+        console.log(apiPokes);
+        const apiPokesMapped = array.map(e => {
+            return {
+                image: e.sprites.other.home.front_default,
+                name: e.name,
+                types: e.types.map(e => e.type.name),
+                id: e.id,
+                hp: e.stats[0].base_stat,
+                attack: e.stats[1].base_stat,
+                defense: e.stats[2].base_stat,
+                speed: e.stats[5].base_stat,
+                height: e.height,
+                weight: e.weight
+            }
+        })
+        return apiPokesMapped;
     } catch (error) {
         console.error(error);
     }
@@ -129,7 +180,6 @@ const getInApiPokesByName = async (name) => {
 const getPokeTypes = async () => {
     try {
         const types = await axios('https://pokeapi.co/api/v2/type');
-        // const typesJson = types.json();
         const typesMap = types.data
         const typeees = typesMap.results.map(e => e.name)
         return typeees;
@@ -139,35 +189,52 @@ const getPokeTypes = async () => {
     }
 }
 
-router.get('/pokemons', async (req, res) => {
-    const name = req.query.name
+const getAllPokes = async () => {
     const showApiPokes = await getApiPokes();
     const showDbPokes = await getDbPokes();
     const allPokes = showApiPokes.concat(showDbPokes)
+    return allPokes;
+}
+
+router.get('/pokemons', async (req, res) => {
+    const name = req.query.name
+    const formName = req.query.name
+
     try {
-        if (name) {
+        if (name || formName) {
             const filtredDbPoke = await getInDbPokesByName(name);
             const filtredApiPoke = await getInApiPokesByName(name);
-            const allsearchs = filtredDbPoke.concat(filtredApiPoke);
-            allsearchs ?
-                res.status(200).send(allsearchs) :
-                res.status(400).send('Name Nope');
+            if (filtredApiPoke) {
+                const allSearchs = filtredDbPoke.concat(filtredApiPoke);
+                allSearchs.length > 0 ? res.status(200).send(allSearchs) : res.status(400).send('Name Nope');
+            } else {
+                filtredDbPoke.length > 0 ? res.status(200).send(filtredDbPoke) : res.status(200).send([]);
+            }
         } else {
             res.status(200);
-            res.send(allPokes);
+            res.send(await getAllPokes());
         }
 
     } catch (error) {
-        console.error(error);
+        console.log(error);
     }
 })
 
 router.get('/pokemons/:id', async (req, res) => {
-    const { id } = req.params
-    if (id.length) {
-        let showPokeById = await getPokesById(id)
-        res.status(200).send(showPokeById)
-    } else res.status(400).send('id Oops')
+    try {
+        const { id } = req.params
+        if ((id.replace(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i) === "undefined" && id.length === 36) || (!isNaN(id) && id.length <= 3)) {
+            let showPokeById = await getApiPokesById(id)
+            if (showPokeById.status === "error") {
+                return res.status(400).send(showPokeById.msg)
+            }
+            res.status(200).send(showPokeById.data)
+        } else {
+            res.status(400).send('Oops id')
+        }
+    } catch (error) {
+        console.error(error);
+    }
 })
 
 router.get('/types', async (req, res) => {
@@ -187,9 +254,9 @@ router.post('/pokemons', async (req, res) => {
 
     try {
         if (!name) {
-            res.status(400).send('chinguesumae')
+            res.status(400).send('Poke name is required')
         }
-    
+
         let newPoke = await Pokemon.create({
             name,
             id,
@@ -201,22 +268,22 @@ router.post('/pokemons', async (req, res) => {
             weight,
             image
         })
-    
+
         let typesBody = await Types.findAll({
             where: {
                 name: types
             }
         })
-    
+
         newPoke.addTypes(typesBody);
-        
+
         res.status(200).send('Poke Created')
-        
+
     } catch (error) {
         console.error(error);
     }
 
-    
+
 })
 
 module.exports = router;

@@ -1,0 +1,29 @@
+.details{
+    display: flex;
+    flex-direction: column;
+}
+
+.container {
+margin: auto;
+background-color: #2b2b2b;
+border-bottom-left-radius: 20px;
+border-bottom-right-radius: 20px;
+}
+
+.textContainer {
+    border-top: 2px solid #fefefe;
+    padding-top: 10px;
+    margin-bottom: 20px;
+    text-transform: capitalize;
+    text-align: center;
+    color: #fefefe;
+}
+
+.types {
+    display: inline;
+}
+
+.img {
+    width: 300px;
+    margin: auto;
+}

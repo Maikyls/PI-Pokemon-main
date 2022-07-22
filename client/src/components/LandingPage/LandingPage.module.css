@@ -1,0 +1,16 @@
+.land{
+    background-image: url('https://img.freepik.com/vector-gratis/zoom-comico-amarillo-abstracto_1409-923.jpg?t=st=1657869047~exp=1657869647~hmac=7866363c773f3238f930a0d82f41380722e704b24404f7045693a4a9140a4c1f&w=1380');
+    background-size: cover;
+    background-repeat: no-repeat;
+    width: auto;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+}
+
+.pokeBall{
+    width: 300px;
+    height: 300px;
+}
